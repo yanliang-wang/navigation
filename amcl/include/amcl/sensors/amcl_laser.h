@@ -49,9 +49,9 @@ class AMCLLaserData : public AMCLSensorData
     AMCLLaserData () {ranges=NULL;};
     virtual ~AMCLLaserData() {delete [] ranges;};
   // Laser range data (range, bearing tuples)
-  public: int range_count;
-  public: double range_max;
-  public: double (*ranges)[2];
+  public: int range_count;      // 测距点的数量
+  public: double range_max;     // 最大的测距范围
+  public: double (*ranges)[2];  // 测距值，第一个维度是距离，第二个维度是角度值
 };
 
 

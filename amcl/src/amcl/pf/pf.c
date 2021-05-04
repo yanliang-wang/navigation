@@ -275,7 +275,7 @@ void pf_update_sensor(pf_t *pf, pf_sensor_model_fn_t sensor_fn, void *sensor_dat
   set = pf->sets + pf->current_set;
 
   // Compute the sample weights
-  total = (*sensor_fn) (sensor_data, set);
+  total = (*sensor_fn) (sensor_data, set);  // sample weights的总和
 
   set->n_effective = 0;
   
@@ -480,7 +480,7 @@ void pf_update_resample(pf_t *pf)
     pf_kdtree_insert(set_b->kdtree, sample_b->pose, sample_b->weight);
 
     // See if we have enough samples yet
-    if (set_b->sample_count > pf_resample_limit(pf, set_b->kdtree->leaf_count))
+    if (set_b->sample_count > pf_resample_limit(pf, set_b->kdtree->leaf_count)) // 自适应调整粒子数
       break;
   }
   
@@ -730,7 +730,7 @@ void pf_get_cep_stats(pf_t *pf, pf_vector_t *mean, double *var)
 // Get the statistics for a particular cluster.
 int pf_get_cluster_stats(pf_t *pf, int clabel, double *weight,
                          pf_vector_t *mean, pf_matrix_t *cov)
-{
+{ //在这个函数执行之前，pf_cluster_stats()已经被执行过了，也就是说每个粒子的cluster的信息都已经被算好了
   pf_sample_set_t *set;
   pf_cluster_t *cluster;
 

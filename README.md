@@ -1,6 +1,10 @@
 ROS Navigation Stack
 ====================
 
+fork from:https://github.com/ros-planning/navigation.git
+
+添加了阅读amcl时的注释
+
 A 2D navigation stack that takes in information from odometry, sensor
 streams, and a goal pose and outputs safe velocity commands that are sent
 to a mobile base.

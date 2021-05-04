@@ -36,7 +36,7 @@
 #include "amcl/pf/pf.h"
 #include "amcl/sensors/amcl_odom.h"
 #include "amcl/sensors/amcl_laser.h"
-#include "portable_utils.hpp"
+#include "include/portable_utils.hpp"
 
 #include "ros/assert.h"
 
@@ -784,7 +784,7 @@ void AmclNode::savePoseToServer()
                                   last_published_pose.pose.covariance[6*5+5]);
 }
 
-void AmclNode::updatePoseFromServer()
+void AmclNode::updatePoseFromServer() //读取参数服务器中的initial_pose，并进行更新
 {
   init_pose_[0] = 0.0;
   init_pose_[1] = 0.0;
@@ -1026,7 +1026,7 @@ AmclNode::getOdomPose(geometry_msgs::PoseStamped& odom_pose,
   tf2::toMsg(tf2::Transform::getIdentity(), ident.pose);
   try
   {
-    this->tf_->transform(ident, odom_pose, odom_frame_id_);
+    this->tf_->transform(ident, odom_pose, odom_frame_id_); // tf_ 是tf2_ros::Buffer类型的，应该是缓存了一段时间内的tf
   }
   catch(tf2::TransformException e)
   {
@@ -1170,9 +1170,9 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
     laser_index = frame_to_laser_[laser_scan_frame_id];
   }
 
-  // Where was the robot when this scan was taken?
+  // Where was the robot when this scan was taken?（这个pose是base_frame相对于 odom 坐标系的）
   pf_vector_t pose;
-  if(!getOdomPose(latest_odom_pose_, pose.v[0], pose.v[1], pose.v[2],
+  if(!getOdomPose(latest_odom_pose_, pose.v[0], pose.v[1], pose.v[2],//// 这里得到的pose是这个时间下的laser_scan->header.stamp，所以是合理的
                   laser_scan->header.stamp, base_frame_id_))
   {
     ROS_ERROR("Couldn't determine robot's pose associated with laser scan");
@@ -1185,8 +1185,8 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
   if(pf_init_)
   {
     // Compute change in pose
-    //delta = pf_vector_coord_sub(pose, pf_odom_pose_);
-    delta.v[0] = pose.v[0] - pf_odom_pose_.v[0];
+    //delta = pf_vector_coord_sub(pose, pf_odom_pose_); 
+    delta.v[0] = pose.v[0] - pf_odom_pose_.v[0];  //pf_odom_pose_是上一时刻的odom pose
     delta.v[1] = pose.v[1] - pf_odom_pose_.v[1];
     delta.v[2] = angle_diff(pose.v[2], pf_odom_pose_.v[2]);
 
@@ -1220,7 +1220,7 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
 
     resample_count_ = 0;
   }
-  // If the robot has moved, update the filter
+  // If the robot has moved, update the filter（粒子的传播）
   else if(pf_init_ && lasers_update_[laser_index])
   {
     //printf("pose\n");
@@ -1241,7 +1241,7 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
   }
 
   bool resampled = false;
-  // If the robot has moved, update the filter
+  // If the robot has moved, update the filter（更新每个粒子的权重）
   if(lasers_update_[laser_index])
   {
     AMCLLaserData ldata;
@@ -1264,7 +1264,7 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
     tf2::convert(q, inc_q.quaternion);
     try
     {
-      tf_->transform(min_q, min_q, base_frame_id_);
+      tf_->transform(min_q, min_q, base_frame_id_);//转为base_frame坐标系
       tf_->transform(inc_q, inc_q, base_frame_id_);
     }
     catch(tf2::TransformException& e)
@@ -1315,7 +1315,7 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
     pf_odom_pose_ = pose;
 
     // Resample the particles
-    if(!(++resample_count_ % resample_interval_))
+    if(!(++resample_count_ % resample_interval_)) //间隔几次后resample一次
     {
       pf_update_resample(pf_);
       resampled = true;
@@ -1345,7 +1345,7 @@ AmclNode::laserReceived(const sensor_msgs::LaserScanConstPtr& laser_scan)
     }
   }
 
-  if(resampled || force_publication)
+  if(resampled || force_publication)  // 在此之前，已经计算了每个pose所在cluster的weight，及每个cluster中粒子pose的平均值。所以这里直接选取weight最大的cluster中pose的平均值作为amcl_pose，并在话题amcl_pose中发布最新的pose信息
   {
     // Read out the current hypotheses
     double max_weight = 0.0;

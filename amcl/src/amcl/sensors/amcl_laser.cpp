@@ -131,7 +131,7 @@ bool AMCLLaser::UpdateSensor(pf_t *pf, AMCLSensorData *data)
   else if(this->model_type == LASER_MODEL_LIKELIHOOD_FIELD)
     pf_update_sensor(pf, (pf_sensor_model_fn_t) LikelihoodFieldModel, data);  
   else if(this->model_type == LASER_MODEL_LIKELIHOOD_FIELD_PROB)
-    pf_update_sensor(pf, (pf_sensor_model_fn_t) LikelihoodFieldModelProb, data);  
+    pf_update_sensor(pf, (pf_sensor_model_fn_t) LikelihoodFieldModelProb, data);  // 推荐看这种方式，概率似然场模型
   else
     pf_update_sensor(pf, (pf_sensor_model_fn_t) BeamModel, data);
 
@@ -328,7 +328,7 @@ double AMCLLaser::LikelihoodFieldModelProb(AMCLLaserData *data, pf_sample_set_t*
   double z_hit_denom = 2 * self->sigma_hit * self->sigma_hit;
   double z_rand_mult = 1.0/data->range_max;
 
-  double max_dist_prob = exp(-(self->map->max_occ_dist * self->map->max_occ_dist) / z_hit_denom);
+  double max_dist_prob = exp(-(self->map->max_occ_dist * self->map->max_occ_dist) / z_hit_denom); // 好像是假设了最远障碍物的分布 是符合这个分布的
 
   //Beam skipping - ignores beams for which a majoirty of particles do not agree with the map
   //prevents correct particles from getting down weighted because of unexpected obstacles 
@@ -382,7 +382,7 @@ double AMCLLaser::LikelihoodFieldModelProb(AMCLLaserData *data, pf_sample_set_t*
     
     beam_ind = 0;
     
-    for (i = 0; i < data->range_count; i += step, beam_ind++)
+    for (i = 0; i < data->range_count; i += step, beam_ind++) //对于每个激光点
     {
       obs_range = data->ranges[i][0];
       obs_bearing = data->ranges[i][1];
@@ -400,33 +400,33 @@ double AMCLLaser::LikelihoodFieldModelProb(AMCLLaserData *data, pf_sample_set_t*
       pz = 0.0;
 
       // Compute the endpoint of the beam
-      hit.v[0] = pose.v[0] + obs_range * cos(pose.v[2] + obs_bearing);
+      hit.v[0] = pose.v[0] + obs_range * cos(pose.v[2] + obs_bearing);  // 激光点的世界坐标系
       hit.v[1] = pose.v[1] + obs_range * sin(pose.v[2] + obs_bearing);
 
       // Convert to map grid coords.
       int mi, mj;
-      mi = MAP_GXWX(self->map, hit.v[0]);
+      mi = MAP_GXWX(self->map, hit.v[0]); //把世界坐标系的点转为map坐标系
       mj = MAP_GYWY(self->map, hit.v[1]);
       
       // Part 1: Get distance from the hit to closest obstacle.
       // Off-map penalized as max distance
       
-      if(!MAP_VALID(self->map, mi, mj)){
+      if(!MAP_VALID(self->map, mi, mj)){  // 不在地图范围内
 	pz += self->z_hit * max_dist_prob;
       }
       else{
-	z = self->map->cells[MAP_INDEX(self->map,mi,mj)].occ_dist;
+	z = self->map->cells[MAP_INDEX(self->map,mi,mj)].occ_dist;  //该点距离最近障碍物的距离
 	if(z < beam_skip_distance){
 	  obs_count[beam_ind] += 1;
 	}
-	pz += self->z_hit * exp(-(z * z) / z_hit_denom);
+	pz += self->z_hit * exp(-(z * z) / z_hit_denom);  // 后者乘的就是似然场模型的栅格概率公式
       }
        
       // Gaussian model
       // NOTE: this should have a normalization of 1/(sqrt(2pi)*sigma)
       
       // Part 2: random measurements
-      pz += self->z_rand * z_rand_mult;
+      pz += self->z_rand * z_rand_mult; //噪声
 
       assert(pz <= 1.0); 
       assert(pz >= 0.0);
@@ -434,7 +434,7 @@ double AMCLLaser::LikelihoodFieldModelProb(AMCLLaserData *data, pf_sample_set_t*
       // TODO: outlier rejection for short readings
             
       if(!do_beamskip){
-	log_p += log(pz);
+	log_p += log(pz); // 对当前pose下的每个激光点的似然值进行累加
       }
       else{
 	self->temp_obs[j][beam_ind] = pz; 

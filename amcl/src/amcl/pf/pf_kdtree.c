@@ -211,7 +211,7 @@ int pf_kdtree_equal(pf_kdtree_t *self, int key_a[], int key_b[])
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// Insert a node into the tree
+// Insert a node into the tree //要插的节点在指定的节点node之后
 pf_kdtree_node_t *pf_kdtree_insert_node(pf_kdtree_t *self, pf_kdtree_node_t *parent,
                                         pf_kdtree_node_t *node, int key[], double value)
 {
@@ -219,11 +219,11 @@ pf_kdtree_node_t *pf_kdtree_insert_node(pf_kdtree_t *self, pf_kdtree_node_t *par
   int split, max_split;
 
   // If the node doesnt exist yet...
-  if (node == NULL)
+  if (node == NULL) // 节点不存在，然后就加到树中，并设为叶子节点
   {
     assert(self->node_count < self->node_max_count);
     node = self->nodes + self->node_count++;
-    memset(node, 0, sizeof(pf_kdtree_node_t));
+    memset(node, 0, sizeof(pf_kdtree_node_t)); //将这个memory里的值都set为0
 
     node->leaf = 1;
 
@@ -240,7 +240,7 @@ pf_kdtree_node_t *pf_kdtree_insert_node(pf_kdtree_t *self, pf_kdtree_node_t *par
   }
 
   // If the node exists, and it is a leaf node...
-  else if (node->leaf)
+  else if (node->leaf) 
   {
     // If the keys are equal, increment the value
     if (pf_kdtree_equal(self, key, node->key))

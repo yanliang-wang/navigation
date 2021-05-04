@@ -113,7 +113,7 @@ pf_vector_t pf_pdf_gaussian_sample(pf_pdf_gaussian_t *pdf)
   for (i = 0; i < 3; i++)
   {
     //r.v[i] = gsl_ran_gaussian(pdf->rng, pdf->cd.v[i]);
-    r.v[i] = pf_ran_gaussian(pdf->cd.v[i]);
+    r.v[i] = pf_ran_gaussian(pdf->cd.v[i]);// pdf->cd.v[i] 是sigma
   }
 
   for (i = 0; i < 3; i++)
