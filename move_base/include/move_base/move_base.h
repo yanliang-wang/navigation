@@ -64,9 +64,9 @@ namespace move_base {
   typedef actionlib::SimpleActionServer<move_base_msgs::MoveBaseAction> MoveBaseActionServer;
 
   enum MoveBaseState {
-    PLANNING,
-    CONTROLLING,
-    CLEARING
+    PLANNING, ///< 指接受新目标与进行全局规划的整个过程,如果规划成功，会转为CONTROLLING
+    CONTROLLING, ///< 调用局部规划器计算机器人速度的过程
+    CLEARING  ///< 利用用户定义的行为进行recovery的过程
   };
 
   enum RecoveryTrigger
@@ -202,7 +202,7 @@ namespace move_base {
       bool make_plan_clear_costmap_, make_plan_add_unreachable_goal_;
       double oscillation_timeout_, oscillation_distance_;
 
-      MoveBaseState state_;
+      MoveBaseState state_; ///< 状态机 状态变量
       RecoveryTrigger recovery_trigger_;
 
       ros::Time last_valid_plan_, last_valid_control_, last_oscillation_reset_;
@@ -212,15 +212,15 @@ namespace move_base {
       pluginlib::ClassLoader<nav_core::RecoveryBehavior> recovery_loader_;
 
       //set up plan triple buffer
-      std::vector<geometry_msgs::PoseStamped>* planner_plan_;
-      std::vector<geometry_msgs::PoseStamped>* latest_plan_;
+      std::vector<geometry_msgs::PoseStamped>* planner_plan_; ///< 全局路径
+      std::vector<geometry_msgs::PoseStamped>* latest_plan_;///< 最新的全局路径
       std::vector<geometry_msgs::PoseStamped>* controller_plan_;
 
       //set up the planner's thread
-      bool runPlanner_;
+      bool runPlanner_; ///< 用来决定当前时刻planThread是否被执行
       boost::recursive_mutex planner_mutex_;
       boost::condition_variable_any planner_cond_;
-      geometry_msgs::PoseStamped planner_goal_;
+      geometry_msgs::PoseStamped planner_goal_; ///< 全局规划的目标
       boost::thread* planner_thread_;
 
 

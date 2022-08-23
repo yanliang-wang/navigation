@@ -58,6 +58,7 @@ namespace move_base {
     planner_plan_(NULL), latest_plan_(NULL), controller_plan_(NULL),
     runPlanner_(false), setup_(false), p_freq_change_(false), c_freq_change_(false), new_global_plan_(false) {
 
+    // action: 收到goal后进行规划 执行
     as_ = new MoveBaseActionServer(ros::NodeHandle(), "move_base", boost::bind(&MoveBase::executeCb, this, _1), false);
 
     ros::NodeHandle private_nh("~");
@@ -89,7 +90,7 @@ namespace move_base {
     latest_plan_ = new std::vector<geometry_msgs::PoseStamped>();
     controller_plan_ = new std::vector<geometry_msgs::PoseStamped>();
 
-    //set up the planner's thread
+    //set up the planner's thread // attention: thread1
     planner_thread_ = new boost::thread(boost::bind(&MoveBase::planThread, this));
 
     //for commanding the base
@@ -103,6 +104,7 @@ namespace move_base {
     //we'll provide a mechanism for some people to send goals as PoseStamped messages over a topic
     //they won't get any useful information back about its status, but this is useful for tools
     //like nav_view and rviz
+    // attention: 常用的rviz goal topic
     ros::NodeHandle simple_nh("move_base_simple");
     goal_sub_ = simple_nh.subscribe<geometry_msgs::PoseStamped>("goal", 1, boost::bind(&MoveBase::goalCB, this, _1));
 
@@ -272,6 +274,10 @@ namespace move_base {
     last_config_ = config;
   }
 
+  /**
+   * @brief 通过调用move base action实现的goal callback
+   * @param goal
+   */
   void MoveBase::goalCB(const geometry_msgs::PoseStamped::ConstPtr& goal){
     ROS_DEBUG_NAMED("move_base","In ROS goal callback, wrapping the PoseStamped in the action message and re-sending to the server.");
     move_base_msgs::MoveBaseActionGoal action_goal;
@@ -347,6 +353,14 @@ namespace move_base {
   }
 
 
+  /**
+   * @brief /move_base/make_plan对应的service callback，底层实现是先加一些check，然后调用global planner的makePlan
+   * 同时global_planner也提供了一个相同的serivice叫/move_base/NavfnROS/make_plan，这个相比move_base直接提供的，没有一些check
+   *
+   * @param req
+   * @param resp
+   * @return
+   */
   bool MoveBase::planService(nav_msgs::GetPlan::Request &req, nav_msgs::GetPlan::Response &resp){
     if(as_->isActive()){
       ROS_ERROR("move_base must be in an inactive state to make a plan for an external user");
@@ -589,7 +603,7 @@ namespace move_base {
 
       //run planner
       planner_plan_->clear();
-      bool gotPlan = n.ok() && makePlan(temp_goal, *planner_plan_);
+      bool gotPlan = n.ok() && makePlan(temp_goal, *planner_plan_); // global planner
 
       if(gotPlan){
         ROS_DEBUG_NAMED("move_base_plan_thread","Got Plan with %zu points!", planner_plan_->size());
@@ -638,6 +652,7 @@ namespace move_base {
       lock.lock();
 
       //setup sleep interface if needed
+      // 设置固定频率的方式
       if(planner_frequency_ > 0){
         ros::Duration sleep_time = (start_time + ros::Duration(1.0/planner_frequency_)) - ros::Time::now();
         if (sleep_time > ros::Duration(0.0)){
@@ -816,6 +831,7 @@ namespace move_base {
     as_->publishFeedback(feedback);
 
     //check to see if we've moved far enough to reset our oscillation timeout
+    // 检测原地徘徊的情况
     if(distance(current_position, oscillation_pose_) >= oscillation_distance_)
     {
       last_oscillation_reset_ = ros::Time::now();
@@ -910,6 +926,7 @@ namespace move_base {
         {
          boost::unique_lock<costmap_2d::Costmap2D::mutex_t> lock(*(controller_costmap_ros_->getCostmap()->getMutex()));
 
+         // 最后调用lcoalPlanner计算下一步的控制指令
         if(tc_->computeVelocityCommands(cmd_vel)){
           ROS_DEBUG_NAMED( "move_base", "Got a valid command from the local planner: %.3lf, %.3lf, %.3lf",
                            cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z );
